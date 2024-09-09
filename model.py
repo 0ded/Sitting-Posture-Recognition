@@ -1,11 +1,11 @@
-from keras.models import Model
-from keras.layers.merge import Concatenate
-from keras.layers import Activation, Input, Lambda
-from keras.layers.convolutional import Conv2D
-from keras.layers.pooling import MaxPooling2D
-from keras.layers.merge import Multiply
-from keras.regularizers import l2
-from keras.initializers import random_normal,constant
+from keras.api.models import Model
+from keras.api.layers import Concatenate
+from keras.api.layers import Activation, Input, Lambda
+from keras.api.layers import Conv2D
+from keras.api.layers import MaxPooling2D
+from keras.api.layers import Multiply
+from keras.api.regularizers import l2
+from keras.api.initializers import random_normal,constant
 
 def relu(x): return Activation('relu')(x)
 

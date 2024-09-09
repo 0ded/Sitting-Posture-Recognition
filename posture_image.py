@@ -6,6 +6,7 @@ import util
 from config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
 from model import get_testing_model
+from model import *
 
 tic=0
 # visualize
@@ -14,6 +15,38 @@ colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0]
           [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255],
           [85, 0, 255], \
           [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
+
+model = get_testing_model()
+model.load_weights('./model/keras/model.h5')
+
+def process_image_for_pose_analysis(image_path):
+	global tic
+	tic = time.time()
+
+	# Load the pose estimation model
+	model = get_testing_model()
+	model.load_weights('./model/keras/model.h5')
+
+	# Load configuration for OpenPose
+	params, model_params = config_reader()
+
+	# Process the image and obtain key points
+	position = process(image_path, params, model_params)
+
+	# Dictionary to hold analysis results
+	analysis_results = {}
+
+	# Analyze the body position and return the results
+	if position == 1:
+		analysis_results["posture"] = "Hunchback"
+	elif position == -1:
+		analysis_results["posture"] = "Reclined"
+	else:
+		analysis_results["posture"] = "Straight"
+
+	# Show the analyzed image
+
+	return analysis_results
 
 
 def process (input_image, params, model_params):
@@ -80,8 +113,8 @@ def process (input_image, params, model_params):
 	position = checkPosition(all_peaks) #check position of spine.
 	checkKneeling(all_peaks) #check whether kneeling oernot
 	checkHandFold(all_peaks) #check whether hands are folding or not.
-	canvas1 = draw(input_image,all_peaks) #show the image.
-	return canvas1 , position
+	# canvas1 = draw(input_image,all_peaks) #show the image.
+	return position
 
 
 def draw(input_image, all_peaks):
@@ -223,22 +256,22 @@ def prinfTick(i): #Time calculation to keep a trackm of progress
     toc = time.time()
     print ('processing time%d is %.5f' % (i,toc - tic))        
 
-if __name__ == '__main__': #main function of the program
-	tic = time.time()
-	print('start processing...')
+# if __name__ == '__main__': #main function of the program
+tic = time.time()
+print('start processing...')
 
-	model = get_testing_model()
-	model.load_weights('./model/keras/model.h5')
+model = get_testing_model()
+model.load_weights('./model/keras/model.h5')
 
-	vi=False
-	if(vi == False):
-	    time.sleep(2)
-	    params, model_params = config_reader()
-	    canvas, position= process('./sample_images/straight_flip.jpg', params, model_params)
-	    showimage(canvas)
-	    if (position == 1):
-	    	print("Hunchback")
-	    elif (position == -1):
-	    	print ("Reclined")
-	    else:
-	    	print("Straight")
+vi=False
+if(vi == False):
+	time.sleep(2)
+	params, model_params = config_reader()
+	# canvas, position= process('./sample_images/straight_flip.jpg', params, model_params)
+	# showimage(canvas)
+	# if (position == 1):
+	# 	print("Hunchback")
+	# elif (position == -1):
+	# 	print ("Reclined")
+	# else:
+	# 	print("Straight")

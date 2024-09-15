@@ -5,6 +5,7 @@ import math
 import time
 import numpy as np
 import Posture.SittingPostureRecognition.util
+from Posture.SittingPostureRecognition import util
 from Posture.SittingPostureRecognition.config_reader import config_reader
 from scipy.ndimage.filters import gaussian_filter
 from Posture.SittingPostureRecognition.model import *
@@ -18,24 +19,23 @@ colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0]
           [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
 
 model = get_testing_model()
-model.load_weights('./model/keras/model.h5')
+import os
+print(os.getcwd())
+print(os.path.isfile("./SittingPostureRecognition/model/keras/model.h5"))
+model.load_weights('./SittingPostureRecognition/model/keras/model.h5')
 
-def process_image_for_pose_analysis(image_path):
+def process_image_for_pose_analysis(image_data):
     global tic
     tic = time.time()
-
-    # Load the pose estimation model
-    model = get_testing_model()
-    model.load_weights('./model/keras/model.h5')
 
     # Load configuration for OpenPose
     params, model_params = config_reader()
 
     # Process the image and obtain key points
-    position = process(image_path, params, model_params)
+    position, kneeling, hands = process_image_data(model_params, image_data, params)
 
     # Dictionary to hold analysis results
-    analysis_results = {}
+    analysis_results = {"hands": hands, "kneeling": kneeling}
 
     # Analyze the body position and return the results
     if position == 1:
@@ -50,9 +50,13 @@ def process_image_for_pose_analysis(image_path):
     return analysis_results
 
 
-def process (input_image, params, model_params):
+def process(input_image, params, model_params):
     ''' Start of finding the Key points of full body using Open Pose.'''
     oriImg = cv2.imread(input_image)  # B,G,R order
+    return process_image_data(model_params, oriImg, params)
+
+
+def process_image_data(model_params, oriImg, params):
     multiplier = [x * model_params['boxsize'] / oriImg.shape[0] for x in params['scale_search']]
     heatmap_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 19))
     paf_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 38))
@@ -61,7 +65,8 @@ def process (input_image, params, model_params):
         imageToTest = cv2.resize(oriImg, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
         imageToTest_padded, pad = util.padRightDownCorner(imageToTest, model_params['stride'],
                                                           model_params['padValue'])
-        input_img = np.transpose(np.float32(imageToTest_padded[:,:,:,np.newaxis]), (3,0,1,2)) # required shape (1, width, height, channels)
+        input_img = np.transpose(np.float32(imageToTest_padded[:, :, :, np.newaxis]),
+                                 (3, 0, 1, 2))  # required shape (1, width, height, channels)
         output_blobs = model.predict(input_img)
         heatmap = np.squeeze(output_blobs[1])  # output 1 is heatmaps
         heatmap = cv2.resize(heatmap, (0, 0), fx=model_params['stride'], fy=model_params['stride'],
@@ -76,12 +81,9 @@ def process (input_image, params, model_params):
         paf = cv2.resize(paf, (oriImg.shape[1], oriImg.shape[0]), interpolation=cv2.INTER_CUBIC)
         heatmap_avg = heatmap_avg + heatmap / len(multiplier)
         paf_avg = paf_avg + paf / len(multiplier)
-
-    all_peaks = [] #To store all the key points which a re detected.
+    all_peaks = []  # To store all the key points which a re detected.
     peak_counter = 0
-
-    prinfTick(1) #prints time required till now.
-
+    prinfTick(1)  # prints time required till now.
     for part in range(18):
         map_ori = heatmap_avg[:, :, part]
         map = gaussian_filter(map_ori, sigma=3)
@@ -104,18 +106,16 @@ def process (input_image, params, model_params):
 
         all_peaks.append(peaks_with_score_and_id)
         peak_counter += len(peaks)
-
     connection_all = []
     special_k = []
     mid_num = 10
-
-    prinfTick(2) #prints time required till now.
+    prinfTick(2)  # prints time required till now.
     print()
-    position = checkPosition(all_peaks) #check position of spine.
-    checkKneeling(all_peaks) #check whether kneeling oernot
-    checkHandFold(all_peaks) #check whether hands are folding or not.
+    position = checkPosition(all_peaks)  # check position of spine.
+    kneeling = checkKneeling(all_peaks)  # check whether kneeling oernot
+    hands = checkHandFold(all_peaks)  # check whether hands are folding or not.
     # canvas1 = draw(input_image,all_peaks) #show the image.
-    return position
+    return position, kneeling, hands
 
 
 def draw(input_image, all_peaks):
@@ -146,7 +146,7 @@ def checkPosition(all_peaks):
         else:
             return 0
     except Exception as e:
-        print("person not in lateral view and unable to detect ears or hip")
+        return "person not in lateral view and unable to detect ears or hip"
 
 #calculate angle between two points with respect to x-axis (horizontal axis)
 def calcAngle(a, b):
@@ -168,11 +168,11 @@ def checkHandFold(all_peaks):
                     distance  = calcDistance(all_peaks[3][0][0:2],all_peaks[4][0][0:2]) #distance between right arm-joint and right palm.
                     armdist = calcDistance(all_peaks[2][0][0:2], all_peaks[3][0][0:2]) #distance between left arm-joint and left palm.
                     if (distance < (armdist + 100) and distance > (armdist - 100) ): #this value 100 is arbitary. this shall be replaced with a calculation which can adjust to different sizes of people.
-                        print("Not Folding Hands")
+                        return "Not Folding Hands"
                     else:
-                        print("Folding Hands")
+                        return "Folding Hands"
             except Exception as e:
-                print("Folding Hands")
+                return "Folding Hands"
     except Exception as e:
         try:
             if(all_peaks[7][0][0:2]):
@@ -180,11 +180,11 @@ def checkHandFold(all_peaks):
                 armdist = calcDistance(all_peaks[6][0][0:2], all_peaks[5][0][0:2])
                 # print(distance)
                 if (distance < (armdist + 100) and distance > (armdist - 100)):
-                    print("Not Folding Hands")
+                    return "Not Folding Hands"
                 else:
-                    print("Folding Hands")
+                    return "Folding Hands"
         except Exception as e:
-            print("Unable to detect arm joints")
+            return "Unable to detect arm joints"
 
 
 def calcDistance(a,b): #calculate distance between two points.
@@ -193,7 +193,7 @@ def calcDistance(a,b): #calculate distance between two points.
         x2, y2 = b
         return math.hypot(x2 - x1, y2 - y1)
     except Exception as e:
-        print("unable to calculate distance")
+        print( "unable to calculate distance")
 
 def checkKneeling(all_peaks):
     f = 0
@@ -212,13 +212,13 @@ def checkKneeling(all_peaks):
             leftdegrees = 180 - leftdegrees
             rightdegrees = 180 - rightdegrees
         if (leftdegrees > 60  and rightdegrees > 60): # 60 degrees is trail and error value here. We can tweak this accordingly and results will vary.
-            print ("Both Legs are in Kneeling")
+            return "Both Legs are in Kneeling"
         elif (rightdegrees > 60):
-            print ("Right leg is kneeling")
+            return "Right leg is kneeling"
         elif (leftdegrees > 60):
-            print ("Left leg is kneeling")
+            return "Left leg is kneeling"
         else:
-            print ("Not kneeling")
+            return "Not kneeling"
 
     except IndexError as e:
         try:
@@ -232,11 +232,11 @@ def checkKneeling(all_peaks):
             if (f == 0):
                 degrees = 180 - degrees
             if (degrees > 60):
-                print ("Both Legs Kneeling")
+                return "Both Legs Kneeling"
             else:
-                print("Not Kneeling")
+                return "Not Kneeling"
         except Exception as e:
-            print("legs not detected")
+            return "legs not detected"
 
 
 

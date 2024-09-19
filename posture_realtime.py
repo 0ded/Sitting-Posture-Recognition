@@ -1,10 +1,12 @@
-import cv2
 import math
 import time
+
+import cv2
 import numpy as np
+from scipy.ndimage.filters import gaussian_filter
+
 import util
 from config_reader import config_reader
-from scipy.ndimage.filters import gaussian_filter
 from model import get_testing_model
 
 tic=0

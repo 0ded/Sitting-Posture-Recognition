@@ -1,13 +1,13 @@
+import math
 import sys
+import time
 
 import cv2
-import math
-import time
 import numpy as np
-import Posture.SittingPostureRecognition.util
+from scipy.ndimage.filters import gaussian_filter
+
 from Posture.SittingPostureRecognition import util
 from Posture.SittingPostureRecognition.config_reader import config_reader
-from scipy.ndimage.filters import gaussian_filter
 from Posture.SittingPostureRecognition.model import *
 
 tic=0
@@ -21,8 +21,8 @@ colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0]
 model = get_testing_model()
 import os
 print(os.getcwd())
-print(os.path.isfile("./SittingPostureRecognition/model/keras/model.h5"))
-model.load_weights('./SittingPostureRecognition/model/keras/model.h5')
+print(os.path.isfile("Posture/SittingPostureRecognition/model/keras/model.h5"))
+model.load_weights('Posture/SittingPostureRecognition/model/keras/model.h5')
 
 def process_image_for_pose_analysis(image_data):
     global tic

@@ -1,0 +1,1 @@
+{"hands": "Not Folding Hands", "kneeling": "Not kneeling", "posture": "Reclined"}
